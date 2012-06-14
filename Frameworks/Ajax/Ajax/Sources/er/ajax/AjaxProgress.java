@@ -33,7 +33,7 @@ public class AjaxProgress {
 	 * 
 	 * @param maximum the maximum value of this progress
 	 */
-	public AjaxProgress(int maximum) {
+	public AjaxProgress(long maximum) {
 		this("AjaxProgress" + System.currentTimeMillis(), maximum);
 	}
 
@@ -43,7 +43,7 @@ public class AjaxProgress {
 	 * @param id the id of this AjaxProgress (only useful if you're registering it with AjaxProgressBar's registry)
 	 * @param maximum the maximum value of this progress
 	 */
-	public AjaxProgress(String id, int maximum) {
+	public AjaxProgress(String id, long maximum) {
 		_id = id;
 		_maximum = maximum;
 	}
