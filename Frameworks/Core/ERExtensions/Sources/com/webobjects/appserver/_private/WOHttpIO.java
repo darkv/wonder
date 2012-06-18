@@ -284,19 +284,22 @@ public final class WOHttpIO {
 		InputStream pbsis = _readHeaders(sis, true, true, false);
 
 		NSData contentData = null;
-		int contentLengthInt = 0;
 		NSArray headers = (NSArray) _headers.objectForKey(ContentLengthKey);
 		if (headers != null && headers.count() == 1 && pbsis != null) {
 			try {
-				contentLengthInt = Integer.parseInt(headers.lastObject().toString());
+				long contentLength = Long.parseLong(headers.lastObject().toString());
+
+				if (contentLength > 0) {
+					if (contentLength > Integer.MAX_VALUE) {
+						contentData = new WOLargeInputStreamData(pbsis, contentLength);
+					} else {
+						contentData = new WOInputStreamData(pbsis, (int) contentLength);
+					}
+				}
 			} catch (NumberFormatException e) {
 				if (WOApplication._isDebuggingEnabled()) {
 					NSLog.debug.appendln("<" + getClass().getName() + "> Unable to parse content-length header: '" + headers.lastObject() + "'.");
 				}
-			}
-
-			if (contentLengthInt > 0) {
-				contentData = new WOInputStreamData(pbsis, contentLengthInt);
 			}
 		} else {
 			NSData fakeContentData = _content(sis, connectionSocket, false);
@@ -653,11 +656,11 @@ public final class WOHttpIO {
 		int pushbackLength = _bufferLength - _bufferIndex;
 
 		if (isRequest) {
-			int contentLengthInt = 0;
+			long contentLength = 0;
 			NSArray headers = (NSArray) _headers.objectForKey(ContentLengthKey);
 			if (headers != null && headers.count() == 1) {
 				try {
-					contentLengthInt = Integer.parseInt(headers.lastObject().toString());
+					contentLength = Long.parseLong(headers.lastObject().toString());
 				} catch (NumberFormatException e) {
 					if (WOApplication._isDebuggingEnabled()) {
 						NSLog.debug.appendln("<" + getClass().getName() + "> Unable to parse content-length header: '"
@@ -666,12 +669,13 @@ public final class WOHttpIO {
 
 				}
 				
-				if (pushbackLength > contentLengthInt) {
-					contentLengthInt = pushbackLength;
+				if (pushbackLength > contentLength) {
+					contentLength = pushbackLength;
 					_headers.setObjectForKey(new NSMutableArray("" + pushbackLength), ContentLengthKey);
 				}
 
-				pbsis = new WONoCopyPushbackInputStream(new BufferedInputStream(sis), contentLengthInt - pushbackLength);
+				long streamLength = contentLength - pushbackLength;
+				pbsis = new WONoCopyPushbackInputStream(new BufferedInputStream(sis), streamLength);
 			}
 
 		} else if (isMultipartHeaders) {
@@ -735,34 +739,37 @@ public final class WOHttpIO {
 	private NSData _content(InputStream is, Socket connectionSocket, boolean connectionClosed) throws IOException {
 		byte[] content = null;
 
-		int length = 0;
+		long length = 0L;
 		int offset = 0;
 		NSData contentData = null;
 
 		NSMutableArray contentLength = (NSMutableArray) _headers.objectForKey(ContentLengthKey);
 		if (contentLength != null && contentLength.count() == 1) {
 			try {
-				length = Integer.parseInt(contentLength.lastObject().toString());
+				length = Long.parseLong(contentLength.lastObject().toString());
 			} catch (NumberFormatException e) {
 				if (WOApplication._isDebuggingEnabled()) {
 					NSLog.debug.appendln("<" + getClass().getName() + "> Unable to parse content-length header: '" + contentLength.lastObject() + "'.");
 				}
 			}
-			if (length != 0) {
-				length = _readBlob(is, length);
+			if (length != 0L) {
+				if (length > Integer.MAX_VALUE) {
+					throw new IllegalStateException("Cannot read from input stream as length is bigger than " + Integer.MAX_VALUE + ".");
+				}
+				length = _readBlob(is, (int) length);
 
 				offset = _bufferIndex;
-				if (length > 0) {
+				if (length > 0L) {
 					content = _buffer;
 				} else {
 					offset = 0;
-					length = 0;
+					length = 0L;
 				}
 			}
 
 			try {
 				if (content != null) {
-					contentData = new NSData(content, new NSRange(offset, length), true);
+					contentData = new NSData(content, new NSRange(offset, (int) length), true);
 				}
 			} catch (Exception e) {
 				NSLog.err.appendln("<" + getClass().getName() + "> Error: Request creation failed!\n" + e);
