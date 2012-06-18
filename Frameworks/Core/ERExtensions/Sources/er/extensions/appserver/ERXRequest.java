@@ -10,6 +10,7 @@ import org.apache.log4j.Logger;
 import com.webobjects.appserver.WOApplication;
 import com.webobjects.appserver.WOContext;
 import com.webobjects.appserver.WORequest;
+import com.webobjects.appserver._private.WOLargeInputStreamData;
 import com.webobjects.appserver._private.WOProperties;
 import com.webobjects.appserver._private.WOShared;
 import com.webobjects.appserver._private.WOURLFormatException;
@@ -550,5 +551,49 @@ public class ERXRequest extends WORequest {
 			_userInfo = mutableUserInfo;
 		}
 		return mutableUserInfo;
+	}
+	
+	@Override
+	public boolean _hasFormValues() {
+		if (isMultipartFormData()) {
+			return _longContentLengthHeader() > 0L;
+		}
+		return super._hasFormValues();
+	}
+	
+	/**
+	 * Returns the content length from request header. You should use {@link #_longContentLengthHeader()}
+	 * instead as you could have content lengths > 2.1GB.
+	 * 
+	 * @return content length
+	 * @deprecated use {@link #_longContentLengthHeader()} instead
+	 */
+	@Deprecated
+	@Override
+	public int _contentLengthHeader() {
+		long length = _longContentLengthHeader();
+		if (length > Integer.MAX_VALUE) {
+			throw new IllegalStateException("ContentLengthHeader is greater than " + Integer.MAX_VALUE
+					+ ". You should use _longContentLengthHeader() instead!");
+		}
+		return (int) length;
+	}
+	
+	/**
+	 * Returns the content length from request header as long.
+	 * 
+	 * @return content length
+	 */
+	public long _longContentLengthHeader() {
+	     String contentLengthString = headerForKey("content-length");
+	     long length = 0L;
+	     if (contentLengthString != null && contentLengthString.length() > 0) {
+		     try {
+		       length = Long.parseLong(contentLengthString);
+		     } catch (NumberFormatException e) {
+				// ignore
+			}
+	     }
+	     return length;
 	}
 }
