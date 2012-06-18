@@ -140,12 +140,12 @@ public class WOMultipartIterator {
 		return _prematureTermination;
 	}
 
-	public int contentLengthRemaining() {
+	public long contentLengthRemaining() {
 		return _bis.theoreticallyAvailable();
 	}
 
-	public int _estimatedContentLength(int numFileUploads, int numNonFileUploads) {
-		int totalRemaining = _bis.originalReadMax();
+	public long _estimatedContentLength(int numFileUploads, int numNonFileUploads) {
+		long totalRemaining = _bis.originalReadMax();
 
 		int delimiterLength = _separator.length + 4;
 

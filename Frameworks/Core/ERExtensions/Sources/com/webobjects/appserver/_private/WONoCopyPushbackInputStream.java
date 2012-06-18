@@ -12,21 +12,21 @@ import java.util.ListIterator;
  * @author jw
  */
 public class WONoCopyPushbackInputStream extends FilterInputStream {
-	LinkedList<PushbackBuffer> buffers;
-	byte[] oneByteArray;
-	int readMax;
-	int originalReadMax;
-	boolean prematureTermination = false;
+	protected LinkedList<PushbackBuffer> buffers;
+	protected byte[] oneByteArray;
+	protected long readMax;
+	protected long originalReadMax;
+	protected boolean prematureTermination = false;
 
-	public WONoCopyPushbackInputStream(InputStream is, int maxBytes) {
+	public WONoCopyPushbackInputStream(InputStream is, long maxBytes) {
 		super(is);
 		buffers = new LinkedList();
 		oneByteArray = new byte[1];
-		readMax = maxBytes < 0 ? 0 : maxBytes;
+		readMax = maxBytes < 0L ? 0L : maxBytes;
 		originalReadMax = readMax;
 	}
 
-	class PushbackBuffer {
+	protected static class PushbackBuffer {
 		public byte[] buf;
 		public int pos;
 		public int length;
@@ -96,7 +96,7 @@ public class WONoCopyPushbackInputStream extends FilterInputStream {
 			}
 		}
 		if (len > 0) {
-			if (readMax <= 0) {
+			if (readMax <= 0L) {
 				if (avail > 0) {
 					return avail;
 				}
@@ -105,7 +105,7 @@ public class WONoCopyPushbackInputStream extends FilterInputStream {
 			}
 
 			if (len > readMax) {
-				len = readMax;
+				len = (int) readMax;
 			}
 
 			try {
@@ -116,7 +116,7 @@ public class WONoCopyPushbackInputStream extends FilterInputStream {
 			}
 			if (len == -1) {
 				if (avail == 0) {
-					if (readMax > 0) {
+					if (readMax > 0L) {
 						prematureTermination = true;
 
 						throw new IOException("Connection reset by peer: Amount read didn't match content-length");
@@ -151,21 +151,26 @@ public class WONoCopyPushbackInputStream extends FilterInputStream {
 	@Override
 	public int available() throws IOException {
 		ensureOpen();
-		int avail = 0;
+		long avail = 0L;
 		ListIterator li = buffers.listIterator(0);
 		while (li.hasNext()) {
 			avail += ((PushbackBuffer) li.next()).length;
 		}
-		return avail + super.available();
+		avail += super.available();
+		if (avail > Integer.MAX_VALUE) {
+			avail = Integer.MAX_VALUE;
+		}
+		return (int) avail;
 	}
-	
-	public int theoreticallyAvailable() {
-		int avail = 0;
+
+	public long theoreticallyAvailable() {
+		long avail = 0L;
 		ListIterator li = buffers.listIterator(0);
 		while (li.hasNext()) {
 			avail += ((PushbackBuffer) li.next()).length;
 		}
-		return avail + readMax;
+		avail += readMax;
+		return avail;
 	}
 
 	@Override
@@ -210,7 +215,7 @@ public class WONoCopyPushbackInputStream extends FilterInputStream {
 			}
 			if (superSkip == -1L) {
 				if (pskip == 0L) {
-					if (readMax > 0) {
+					if (readMax > 0L) {
 						prematureTermination = true;
 
 						throw new IOException("Connection reset by peer: Amount read didn't match content-length");
@@ -219,7 +224,7 @@ public class WONoCopyPushbackInputStream extends FilterInputStream {
 				}
 			}
 
-			readMax = (int) (readMax - superSkip);
+			readMax = readMax - superSkip;
 			pskip += superSkip;
 		}
 		return pskip;
@@ -254,11 +259,11 @@ public class WONoCopyPushbackInputStream extends FilterInputStream {
 		}
 	}
 
-	public int readMax() {
+	public long readMax() {
 		return readMax;
 	}
 
-	public int originalReadMax() {
+	public long originalReadMax() {
 		return originalReadMax;
 	}
 
